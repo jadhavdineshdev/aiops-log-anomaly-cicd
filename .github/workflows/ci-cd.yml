@@ -1,0 +1,86 @@
+name: AIOps Log-Anomaly CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build_service:
+    name: 1. Build & Syntax Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify Syntax & Package Artifacts
+        run: |
+          echo "[BUILD] Verifying Node.js runtime and syntax integrity..."
+          node -v
+          node --check detector.js
+          mkdir -p dist && cp detector.js package.json dist/
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiops-detector-dist
+          path: dist/
+
+  test_anomaly_engine:
+    name: 2. Automated Unit Testing
+    needs: build_service
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run AIOps Anomaly Detection Tests
+        run: |
+          echo "[TEST] Running automated AIOps anomaly detection test suite..."
+          npm test
+
+  deploy_staging:
+    name: 3. Staging Simulation
+    needs: test_anomaly_engine
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: aiops-detector-dist
+          path: dist/
+
+      - name: Run Staging Telemetry Simulation
+        run: |
+          echo "[STAGING] Deploying AIOps detector to Staging environment..."
+          node dist/detector.js --simulate-staging
+
+  deploy_production:
+    name: 4. Production Deployment
+    needs: deploy_staging
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: aiops-detector-dist
+          path: dist/
+
+      - name: Promote & Health-Check Production Service
+        run: |
+          echo "[PROD] Promoting verified AIOps Log-Anomaly Service to Production..."
+          node dist/detector.js --health-check
