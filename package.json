@@ -1,0 +1,10 @@
+{
+  "name": "aiops-log-anomaly-cicd",
+  "version": "1.0.0",
+  "description": "AIOps Z-Score Log & Latency Anomaly Detection Service",
+  "main": "detector.js",
+  "scripts": {
+    "start": "node detector.js",
+    "test": "node test.js"
+  }
+}
